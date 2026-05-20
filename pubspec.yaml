@@ -1,0 +1,32 @@
+name: pineal
+description: >-
+  High-performance Flutter visualization SDK: cartesian charts,
+  force-directed graphs, polar, treemap, heatmap, sankey, OHLC,
+  oscilloscope streaming, a virtual data grid, a paginated user table,
+  and an opt-in headless PDF viewer module. Tree-shakable from
+  independent entry points.
+version: 1.9.0
+repository: https://gitea.gioser.net/sergio/pineal-flutter
+issue_tracker: https://gitea.gioser.net/sergio/pineal-flutter/issues
+
+topics:
+  - chart
+  - graph
+  - visualization
+  - grid
+  - pdf
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
