@@ -4,8 +4,10 @@
 /// de iniciales, badges, hover-row y action trailing por fila.
 ///
 /// API mínima — caller pasa filas + descriptores de columna + opcional
-/// header (título, subtítulo, chips de stats) y handlers.
-library pineal.user_table;
+/// header (título, subtítulo, chips de stats) y handlers. Las columnas
+/// son **ordenables** (click en el header) y **redimensionables**
+/// (arrastrar el borde derecho del header).
+library;
 
 import 'package:flutter/material.dart';
 
@@ -163,11 +165,40 @@ class _PinealUserTableState extends State<PinealUserTable> {
   String? _hoveredId;
   int _page = 0;
 
+  /// Columna por la que se ordena (`key`). null = orden de entrada.
+  String? _sortKey;
+  bool _sortAsc = true;
+
+  /// Anchos overrideados al arrastrar el borde del header. Si una columna
+  /// no figura, se usa `col.width ?? _kDefaultColWidth`.
+  final Map<String, double> _colWidths = {};
+
+  static const double _kDefaultColWidth = 130;
+  static const double _kMinColWidth = 64;
+  static const double _kMaxColWidth = 560;
+
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
   }
+
+  // ── Texto secundario ───────────────────────────────────────────────
+  // El ColorScheme del tema define `outline` como un gris casi blanco
+  // (es un token de BORDE). Usarlo como color de texto deja subtítulos,
+  // headers y paginación ilegibles. El texto secundario se deriva de
+  // `onSurface` con opacidad — gris medio sólido y legible.
+  Color _secondary(ColorScheme cs) => cs.onSurface.withValues(alpha: 0.72);
+  Color _faint(ColorScheme cs) => cs.onSurface.withValues(alpha: 0.55);
+
+  // ── Ancho de columna ───────────────────────────────────────────────
+  double _widthOf(UserTableColumn col) =>
+      _colWidths[col.key] ?? col.width ?? _kDefaultColWidth;
+
+  String? get _firstKey =>
+      widget.columns.isNotEmpty ? widget.columns.first.key : null;
+
+  // ── Filtro / orden / paginación ────────────────────────────────────
 
   List<UserTableRow> get _filteredRows {
     final q = _searchCtrl.text.trim().toLowerCase();
@@ -180,12 +211,60 @@ class _PinealUserTableState extends State<PinealUserTable> {
     }).toList();
   }
 
+  List<UserTableRow> get _sortedRows {
+    final rows = _filteredRows;
+    final key = _sortKey;
+    if (key == null) return rows;
+    UserTableColumn? col;
+    for (final c in widget.columns) {
+      if (c.key == key) {
+        col = c;
+        break;
+      }
+    }
+    final numeric = col?.numeric ?? false;
+    final out = [...rows];
+    out.sort((a, b) {
+      final sa = _sortValueOf(a, key);
+      final sb = _sortValueOf(b, key);
+      final cmp = numeric
+          ? _numOf(sa).compareTo(_numOf(sb))
+          : sa.toLowerCase().compareTo(sb.toLowerCase());
+      return _sortAsc ? cmp : -cmp;
+    });
+    return out;
+  }
+
+  /// El valor de orden: la primera columna ordena por `name` (es la que
+  /// la fila pinta en grande); el resto, por `cells[key]`.
+  String _sortValueOf(UserTableRow r, String key) {
+    if (key == _firstKey) return r.name;
+    return r.cells[key]?.toString() ?? '';
+  }
+
+  double _numOf(String s) {
+    final cleaned = s.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    return double.tryParse(cleaned) ?? double.negativeInfinity;
+  }
+
+  void _toggleSort(String key) {
+    setState(() {
+      if (_sortKey == key) {
+        _sortAsc = !_sortAsc;
+      } else {
+        _sortKey = key;
+        _sortAsc = true;
+      }
+      _page = 0;
+    });
+  }
+
   List<UserTableRow> get _pagedRows {
-    final filtered = _filteredRows;
+    final sorted = _sortedRows;
     final start = _page * widget.pageSize;
-    if (start >= filtered.length) return const [];
-    final end = (start + widget.pageSize).clamp(0, filtered.length);
-    return filtered.sublist(start, end);
+    if (start >= sorted.length) return const [];
+    final end = (start + widget.pageSize).clamp(0, sorted.length);
+    return sorted.sublist(start, end);
   }
 
   int get _totalPages {
@@ -223,7 +302,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(child: Text(
                 'Sin resultados',
-                style: TextStyle(color: cs.outline),
+                style: TextStyle(color: _faint(cs)),
               )),
             ),
           const Divider(height: 1),
@@ -267,7 +346,8 @@ class _PinealUserTableState extends State<PinealUserTable> {
             if (widget.subtitle != null) ...[
               const SizedBox(height: 6),
               Text(widget.subtitle!,
-                style: TextStyle(fontSize: 13, color: cs.outline)),
+                style: TextStyle(
+                  fontSize: 13, height: 1.35, color: _secondary(cs))),
             ],
           ],
         )),
@@ -380,7 +460,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
             Text('${c.count}', style: TextStyle(
               fontSize: 11.5,
               color: active ? cs.onPrimary.withValues(alpha: 0.7)
-                            : cs.outline)),
+                            : _faint(cs))),
           ],
         ]),
       ),
@@ -390,29 +470,79 @@ class _PinealUserTableState extends State<PinealUserTable> {
   // ── Tabla ──────────────────────────────────────────────────────────
 
   Widget _buildTableHeader(ColorScheme cs) {
+    final cols = widget.columns;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
         const SizedBox(width: 56),
-        Expanded(flex: 3, child: _headerCell(cs, widget.columns.isNotEmpty
-            ? widget.columns.first.label : 'Nombre')),
-        for (final col in widget.columns.skip(1))
+        Expanded(flex: 3, child: _headerCell(
+          cs,
+          cols.isNotEmpty ? cols.first.label : 'Nombre',
+          sortKey: _firstKey,
+        )),
+        for (final col in cols.skip(1))
           SizedBox(
-            width: col.width ?? 130,
-            child: _headerCell(cs, col.label, align: col.align),
+            width: _widthOf(col),
+            child: Stack(children: [
+              _headerCell(cs, col.label,
+                  align: col.align,
+                  sortKey: col.key == '_badges' ? null : col.key),
+              Positioned(
+                top: 0, bottom: 0, right: 0, width: 12,
+                child: _ResizeHandle(
+                  lineColor: cs.primary,
+                  onDelta: (dx) => setState(() {
+                    _colWidths[col.key] = (_widthOf(col) + dx)
+                        .clamp(_kMinColWidth, _kMaxColWidth);
+                  }),
+                ),
+              ),
+            ]),
           ),
         const SizedBox(width: 72),  // espacio para "Abrir"
       ]),
     );
   }
 
+  /// Celda de header — clickable para ordenar cuando lleva [sortKey].
+  /// Muestra ▲/▼ en la columna activa y un ↕ tenue en las ordenables.
   Widget _headerCell(ColorScheme cs, String label,
-      {TextAlign align = TextAlign.left}) {
-    return Text(label,
-      textAlign: align,
-      style: TextStyle(
-        fontSize: 11, fontWeight: FontWeight.w800,
-        letterSpacing: 0.5, color: cs.outline,
+      {TextAlign align = TextAlign.left, String? sortKey}) {
+    final sortable = sortKey != null;
+    final active = sortable && sortKey == _sortKey;
+    final content = Row(
+      children: [
+        Flexible(
+          child: Text(label,
+            textAlign: align,
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5, fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: active ? cs.primary : _secondary(cs),
+            ),
+          ),
+        ),
+        if (active) ...[
+          const SizedBox(width: 3),
+          Icon(_sortAsc
+                  ? Icons.arrow_upward_rounded
+                  : Icons.arrow_downward_rounded,
+              size: 13, color: cs.primary),
+        ] else if (sortable) ...[
+          const SizedBox(width: 3),
+          Icon(Icons.unfold_more_rounded,
+              size: 13, color: cs.onSurface.withValues(alpha: 0.28)),
+        ],
+      ],
+    );
+    if (!sortable) return content;
+    return InkWell(
+      onTap: () => _toggleSort(sortKey),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: content,
       ),
     );
   }
@@ -436,7 +566,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
             Expanded(flex: 3, child: _nameCell(cs, row, firstCol)),
             for (final col in widget.columns.skip(1))
               SizedBox(
-                width: col.width ?? 130,
+                width: _widthOf(col),
                 child: _bodyCell(cs, row, col),
               ),
             SizedBox(
@@ -470,7 +600,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
   }
 
   Widget _nameCell(ColorScheme cs, UserTableRow r, UserTableColumn? col) {
-    final color = r.muted ? cs.outline : cs.onSurface;
+    final color = r.muted ? _secondary(cs) : cs.onSurface;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -484,7 +614,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
             maxLines: 1, overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11, fontFamily: 'monospace',
-              color: cs.outline)),
+              color: _faint(cs))),
       ],
     );
   }
@@ -501,7 +631,8 @@ class _PinealUserTableState extends State<PinealUserTable> {
     if (value == null) {
       return Text('—',
         textAlign: col.align,
-        style: TextStyle(fontSize: 12.5, color: cs.outline));
+        style: TextStyle(
+            fontSize: 12.5, color: cs.onSurface.withValues(alpha: 0.40)));
     }
     return Text(value.toString(),
       textAlign: col.align,
@@ -509,7 +640,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
       style: TextStyle(
         fontSize: 12.5,
         fontWeight: col.numeric ? FontWeight.w700 : FontWeight.w500,
-        color: r.muted ? cs.outline : cs.onSurface));
+        color: r.muted ? _secondary(cs) : cs.onSurface));
   }
 
   Widget _badgeChip(ColorScheme cs, UserTableBadge b) {
@@ -537,9 +668,16 @@ class _PinealUserTableState extends State<PinealUserTable> {
     final n = _filteredRows.length;
     final shown = _pagedRows.length;
     return Row(children: [
-      Text('Página ${_page + 1} de $_totalPages · '
-           '$shown mostrados${n != widget.rows.length ? " de $n" : ""}',
-        style: TextStyle(fontSize: 12, color: cs.outline)),
+      Flexible(
+        child: Text(
+          'Página ${_page + 1} de $_totalPages · '
+          '$shown mostrados${n != widget.rows.length ? " de $n" : ""}',
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w600,
+            color: _secondary(cs)),
+        ),
+      ),
       const Spacer(),
       OutlinedButton(
         onPressed: _page == 0
@@ -567,6 +705,50 @@ class _PinealUserTableState extends State<PinealUserTable> {
           fontSize: 12.5, color: cs.onInverseSurface,
           fontWeight: FontWeight.w600)),
     ));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Tirador de redimensión — vive en el borde derecho del header de cada
+// columna fija. Cursor de resize + línea fina al pasar / arrastrar.
+// ─────────────────────────────────────────────────────────────────────
+
+class _ResizeHandle extends StatefulWidget {
+  final Color lineColor;
+  final void Function(double dx) onDelta;
+  const _ResizeHandle({required this.lineColor, required this.onDelta});
+
+  @override
+  State<_ResizeHandle> createState() => _ResizeHandleState();
+}
+
+class _ResizeHandleState extends State<_ResizeHandle> {
+  bool _hot = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      onEnter: (_) => setState(() => _hot = true),
+      onExit: (_) => setState(() => _hot = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) => setState(() => _hot = true),
+        onHorizontalDragUpdate: (d) => widget.onDelta(d.delta.dx),
+        onHorizontalDragEnd: (_) => setState(() => _hot = false),
+        child: Align(
+          alignment: Alignment.center,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: _hot ? 2.5 : 1,
+            height: double.infinity,
+            color: _hot
+                ? widget.lineColor
+                : widget.lineColor.withValues(alpha: 0.0),
+          ),
+        ),
+      ),
+    );
   }
 }
 

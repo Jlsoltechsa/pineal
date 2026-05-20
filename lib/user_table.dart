@@ -4,6 +4,6 @@
 /// A diferencia de `PinealGrid` (Canvas-puro, 1M filas), esta tabla
 /// usa widgets normales — pensada para tamaños de N≤1k personas donde
 /// avatares y badges valen el costo extra.
-library pineal.user_table;
+library;
 
 export 'src/user_table/user_table.dart';
