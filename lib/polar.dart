@@ -1,5 +1,5 @@
 /// Pineal polar — pie, donut, and radar charts on a shared polar engine.
-library pineal.polar;
+library;
 
 export 'core.dart';
 

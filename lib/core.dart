@@ -4,7 +4,7 @@
 /// Pineal and don't need the cartesian or mesh modules. Tree-shaking
 /// drops everything you don't reference at AOT release time, so importing
 /// `core.dart` alone yields the smallest possible binary surface.
-library pineal.core;
+library;
 
 export 'src/data/data_buffer.dart';
 export 'src/data/spatial_index.dart';

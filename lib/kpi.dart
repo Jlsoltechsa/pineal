@@ -10,7 +10,7 @@
 /// raw-buffer pipeline of `cartesian.dart` etc., because the data
 /// volumes here are tiny (a handful of stages, one observation, a
 /// quarter of dates) and the layout concerns dominate.
-library pineal.kpi;
+library;
 
 export 'src/kpi/bullet.dart';
 export 'src/kpi/calendar_heatmap.dart';

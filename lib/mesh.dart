@@ -5,7 +5,7 @@
 /// edge/node renderers, hit-testing and the [PinealGraph] widget. Apps
 /// that only import `cartesian.dart` won't pay for any of it in release
 /// builds.
-library pineal.mesh;
+library;
 
 export 'core.dart';
 

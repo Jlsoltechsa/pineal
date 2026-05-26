@@ -1,5 +1,5 @@
 /// Pineal heatmap — dense matrix visualization via single-quad bitmaps.
-library pineal.heatmap;
+library;
 
 export 'core.dart';
 

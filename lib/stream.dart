@@ -3,7 +3,7 @@
 /// Built around a fixed-capacity [StreamBuffer] (circular ring on a single
 /// [Float32List]) and a [PinealStream] widget that draws the buffer at
 /// every frame without per-frame allocations.
-library pineal.stream;
+library;
 
 export 'core.dart';
 

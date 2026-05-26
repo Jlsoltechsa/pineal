@@ -9,7 +9,7 @@
 /// Hit-testing uses an STR-bulk-loaded R-tree over polygon AABBs plus a
 /// point-in-polygon refine on candidates — `O(log n + k)` per pointer move,
 /// regardless of polygon count. No per-polygon `GestureDetector`.
-library pineal.geo;
+library;
 
 export 'core.dart';
 

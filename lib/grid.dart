@@ -11,7 +11,7 @@
 /// painter, which keeps the focus model identical to a standard Flutter
 /// form: copy/paste, IME, autocomplete and validation all work without
 /// per-cell widgets.
-library pineal.grid;
+library;
 
 export 'core.dart';
 

@@ -3,7 +3,7 @@
 /// Importing this entry point pulls in [core.dart] automatically. If you
 /// only build cartesian charts, prefer this over `package:pineal/pineal.dart`
 /// — AOT release builds will tree-shake every symbol from the mesh family.
-library pineal.cartesian;
+library;
 
 export 'core.dart';
 

@@ -3,7 +3,7 @@
 ///
 /// Decorators on top of `stream.dart`. Importing this entry point pulls in
 /// the streaming module automatically.
-library pineal.phosphor;
+library;
 
 export 'stream.dart';
 

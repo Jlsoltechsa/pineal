@@ -3,7 +3,7 @@
 /// Independent module: importing this entry point gives you the exporter
 /// and the [ExportProfile] DPI helpers. Apps that don't render reports
 /// can leave it out of their tree-shaken bundle.
-library pineal.export;
+library;
 
 export 'cartesian.dart';
 

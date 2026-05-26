@@ -17,7 +17,7 @@
 /// - `package:pineal/gantt.dart` — virtualized chronological RenderBox.
 /// - `package:pineal/user_table.dart` — pretty paginated table for
 ///   person/user lists (avatar initials, badges, hover, action).
-library pineal;
+library;
 
 export 'cartesian.dart';
 export 'mesh.dart';

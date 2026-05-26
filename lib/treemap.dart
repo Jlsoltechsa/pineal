@@ -1,5 +1,5 @@
 /// Pineal treemap — squarified hierarchical visualization.
-library pineal.treemap;
+library;
 
 export 'core.dart';
 

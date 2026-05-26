@@ -1,6 +1,6 @@
 /// Pineal flow — Sankey / alluvial visualizations with batched ribbon
 /// rendering via the Vertices API.
-library pineal.flow;
+library;
 
 export 'core.dart';
 

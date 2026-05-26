@@ -8,7 +8,7 @@
 /// Scroll + zoom mutate a `ChangeNotifier`-backed controller that drives
 /// `markNeedsPaint` directly; gestures use raw `Listener` pointer events,
 /// so the gesture arena doesn't burn cycles every frame.
-library pineal.pdf;
+library;
 
 export 'pdf/backend/pdf_backend.dart';
 export 'pdf/pineal_pdf_view.dart';

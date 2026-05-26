@@ -7,7 +7,7 @@
 /// per-task widget, hit-testing routes through the same slot index, labels
 /// share the LRU `TextCache` so a 1000-task viewport runs `Paragraph.layout`
 /// once per unique label rather than once per bar per frame.
-library pineal.gantt;
+library;
 
 export 'core.dart';
 
