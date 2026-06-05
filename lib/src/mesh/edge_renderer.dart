@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'edge_buffer.dart';
 import 'node_buffer.dart';
 
-enum EdgeCurve { straight, bezier, bundled }
+enum EdgeCurve { straight, bezier, bundled, elbow }
 
 class EdgeStyle {
   const EdgeStyle({
@@ -63,7 +63,38 @@ class EdgeRenderer {
         final cps = _computeBundling(nodes, edges);
         _paintBezier(canvas, nodes, edges, cps);
         break;
+      case EdgeCurve.elbow:
+        _paintElbow(canvas, nodes, edges);
+        break;
     }
+  }
+
+  /// Conectores ortogonales tipo organigrama: tramo vertical desde el origen
+  /// hasta el punto medio en Y, tramo horizontal hasta la X del destino y
+  /// tramo vertical hasta el destino (vertical + esquina + horizontal +
+  /// esquina + vertical). Un único `drawPath` para todo el set.
+  void _paintElbow(Canvas canvas, NodeBuffer nodes, EdgeBuffer edges) {
+    final path = Path();
+    for (var i = 0; i < edges.length; i++) {
+      final s = edges.src(i), t = edges.tgt(i);
+      if (s == t) continue;
+      final sx = nodes.x(s), sy = nodes.y(s);
+      final tx = nodes.x(t), ty = nodes.y(t);
+      final midY = (sy + ty) * 0.5;
+      path
+        ..moveTo(sx, sy)
+        ..lineTo(sx, midY)
+        ..lineTo(tx, midY)
+        ..lineTo(tx, ty);
+    }
+    final paint = Paint()
+      ..color = style.color
+      ..strokeWidth = style.width
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.miter
+      ..strokeCap = StrokeCap.butt
+      ..isAntiAlias = true;
+    canvas.drawPath(path, paint);
   }
 
   void _paintStraight(Canvas canvas, NodeBuffer nodes, EdgeBuffer edges) {
