@@ -33,6 +33,7 @@ class BalancedTreeLayout extends GraphLayout {
     this.subtreeSeparation = 60,
     this.siblingSeparation = 40,
     this.horizontal = false,
+    this.centerHeavySubtrees = false,
   });
 
   /// Nodo raíz. Si es null, usa 0.
@@ -50,6 +51,12 @@ class BalancedTreeLayout extends GraphLayout {
   /// Si es true, el árbol fluye de izquierda a derecha en vez de arriba
   /// hacia abajo.
   final bool horizontal;
+
+  /// Si es true, reordena los hijos de cada nodo para que el subárbol más
+  /// grande quede al centro (y los siguientes se alternen a los lados). Útil
+  /// en organigramas: un coordinador con mucha gente queda centrado bajo su
+  /// jefe en vez de empujado a un extremo.
+  final bool centerHeavySubtrees;
 
   @override
   void apply(NodeBuffer nodes, EdgeBuffer edges, {Rect? bounds}) {
@@ -84,6 +91,31 @@ class BalancedTreeLayout extends GraphLayout {
         depth[v] = depth[u] + 1;
         children[u].add(v);
         queue.add(v);
+      }
+    }
+
+    // Reordena hijos para centrar los subárboles más grandes.
+    if (centerHeavySubtrees) {
+      // Tamaño de subárbol por nodo (post-orden = BFS inverso).
+      final subtreeSize = Int32List(n)..fillRange(0, n, 1);
+      for (var i = queue.length - 1; i >= 1; i--) {
+        final v = queue[i];
+        subtreeSize[parent[v]] += subtreeSize[v];
+      }
+      for (var u = 0; u < n; u++) {
+        final c = children[u];
+        if (c.length < 3) continue; // 1-2 hijos ya quedan balanceados
+        final sorted = [...c]
+          ..sort((a, b) => subtreeSize[b].compareTo(subtreeSize[a]));
+        final out = <int>[];
+        for (var i = 0; i < sorted.length; i++) {
+          if (i.isEven) {
+            out.add(sorted[i]); // a la derecha del centro
+          } else {
+            out.insert(0, sorted[i]); // a la izquierda del centro
+          }
+        }
+        children[u] = out;
       }
     }
 
