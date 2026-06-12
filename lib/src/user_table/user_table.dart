@@ -358,9 +358,13 @@ class _PinealUserTableState extends State<PinealUserTable> {
             child: Text(widget.secondaryActionLabel!),
           ),
         if (widget.secondaryActionLabel != null &&
-            widget.primaryActionLabel != null)
+            widget.primaryActionLabel != null &&
+            widget.onPrimaryAction != null)
           const SizedBox(width: 8),
-        if (widget.primaryActionLabel != null)
+        // Sin callback de acción = sin permiso → se OCULTA por completo (no
+        // botón deshabilitado). El gating por capability vive en el llamador.
+        if (widget.primaryActionLabel != null &&
+            widget.onPrimaryAction != null)
           FilledButton(
             onPressed: widget.onPrimaryAction,
             child: Text(widget.primaryActionLabel!),
