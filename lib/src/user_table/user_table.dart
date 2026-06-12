@@ -328,20 +328,28 @@ class _PinealUserTableState extends State<PinealUserTable> {
           mainAxisSize: MainAxisSize.min,
           children: [
             RichText(text: TextSpan(
-              style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w900,
+              // Usa la familia DISPLAY del tema (Fraunces en SIGMA), no un
+              // TextStyle sin familia (que caía en el body/Poppins).
+              style: (Theme.of(context).textTheme.displaySmall ??
+                      const TextStyle())
+                  .copyWith(
+                fontSize: 28, fontWeight: FontWeight.w800,
                 color: cs.onSurface, letterSpacing: -0.6, height: 1.05,
               ),
-              children: [
-                TextSpan(text: '${widget.title} '),
-                if (widget.subtitle != null)
-                  TextSpan(
-                    text: _highlightItalic(widget.title),
-                    style: TextStyle(
-                      fontStyle: FontStyle.italic, color: cs.primary,
-                    ),
-                  ),
-              ],
+              children: widget.subtitle == null
+                  // Sin subtítulo: el título completo, sin énfasis.
+                  ? [TextSpan(text: widget.title)]
+                  // Con subtítulo: la ÚLTIMA palabra va en itálica (énfasis de
+                  // marca) EN SU LUGAR — no se duplica.
+                  : [
+                      TextSpan(text: '${_baseTitle(widget.title)} '),
+                      TextSpan(
+                        text: _highlightItalic(widget.title),
+                        style: TextStyle(
+                          fontStyle: FontStyle.italic, color: cs.primary,
+                        ),
+                      ),
+                    ],
             )),
             if (widget.subtitle != null) ...[
               const SizedBox(height: 6),
@@ -376,6 +384,14 @@ class _PinealUserTableState extends State<PinealUserTable> {
     final parts = s.split(' ');
     if (parts.length < 2) return '';
     return parts.last;
+  }
+
+  /// El título SIN su última palabra (que va en itálica como énfasis). Para
+  /// títulos de una sola palabra devuelve el título completo.
+  String _baseTitle(String s) {
+    final parts = s.split(' ');
+    if (parts.length < 2) return s;
+    return parts.sublist(0, parts.length - 1).join(' ');
   }
 
   // ── Search bar + stats inline ──────────────────────────────────────
