@@ -106,6 +106,18 @@ class UserTableChipFilter {
 class PinealUserTable extends StatefulWidget {
   final String title;
   final String? subtitle;
+
+  /// Si `false`, NO se pinta el header interno (título + subtítulo + CTAs):
+  /// la pantalla lo provee arriba con un `PageHeader` de marca y deja a la
+  /// tabla solo la búsqueda + filas + paginación. Default `true` (compat).
+  final bool showHeader;
+
+  /// Encabezado de la columna del NOMBRE (la primera, con avatar). Antes se
+  /// tomaba `columns.first.label`, lo que obligaba a "gastar" la 1ª columna
+  /// como rótulo del nombre y descartaba su valor. Ahora el nombre tiene su
+  /// propio rótulo y TODAS las `columns` se renderizan como datos.
+  final String nameLabel;
+
   final List<UserTableColumn> columns;
   final List<UserTableRow> rows;
 
@@ -140,6 +152,8 @@ class PinealUserTable extends StatefulWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.showHeader = true,
+    this.nameLabel = 'Nombre',
     required this.columns,
     required this.rows,
     this.headerStats = const [],
@@ -177,6 +191,10 @@ class _PinealUserTableState extends State<PinealUserTable> {
   static const double _kMinColWidth = 64;
   static const double _kMaxColWidth = 560;
 
+  /// Clave sentinela de la columna del NOMBRE (no es una `column` real; la
+  /// fila la pinta con avatar + name + subId). Ordena por `name`.
+  static const String _kNameKey = '__name__';
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -194,9 +212,6 @@ class _PinealUserTableState extends State<PinealUserTable> {
   // ── Ancho de columna ───────────────────────────────────────────────
   double _widthOf(UserTableColumn col) =>
       _colWidths[col.key] ?? col.width ?? _kDefaultColWidth;
-
-  String? get _firstKey =>
-      widget.columns.isNotEmpty ? widget.columns.first.key : null;
 
   // ── Filtro / orden / paginación ────────────────────────────────────
 
@@ -235,10 +250,10 @@ class _PinealUserTableState extends State<PinealUserTable> {
     return out;
   }
 
-  /// El valor de orden: la primera columna ordena por `name` (es la que
-  /// la fila pinta en grande); el resto, por `cells[key]`.
+  /// El valor de orden: la columna del nombre ordena por `name`; el resto,
+  /// por `cells[key]`.
   String _sortValueOf(UserTableRow r, String key) {
-    if (key == _firstKey) return r.name;
+    if (key == _kNameKey) return r.name;
     return r.cells[key]?.toString() ?? '';
   }
 
@@ -286,8 +301,10 @@ class _PinealUserTableState extends State<PinealUserTable> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(cs),
-          const SizedBox(height: 14),
+          if (widget.showHeader) ...[
+            _buildHeader(cs),
+            const SizedBox(height: 14),
+          ],
           _buildSearchRow(cs),
           if (widget.chipFilters.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -493,10 +510,10 @@ class _PinealUserTableState extends State<PinealUserTable> {
         const SizedBox(width: 56),
         Expanded(flex: 3, child: _headerCell(
           cs,
-          cols.isNotEmpty ? cols.first.label : 'Nombre',
-          sortKey: _firstKey,
+          widget.nameLabel,
+          sortKey: _kNameKey,
         )),
-        for (final col in cols.skip(1))
+        for (final col in cols)
           SizedBox(
             width: _widthOf(col),
             child: Stack(children: [
@@ -533,7 +550,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
             textAlign: align,
             maxLines: 1, overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w800,
+              fontSize: 11.5, fontWeight: FontWeight.w600,
               letterSpacing: 0.4,
               color: active ? cs.primary : _secondary(cs),
             ),
@@ -565,7 +582,6 @@ class _PinealUserTableState extends State<PinealUserTable> {
 
   Widget _buildRow(ColorScheme cs, UserTableRow row) {
     final hovered = _hoveredId == row.id;
-    final firstCol = widget.columns.isNotEmpty ? widget.columns.first : null;
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredId = row.id),
       onExit: (_) => setState(() => _hoveredId = null),
@@ -574,13 +590,13 @@ class _PinealUserTableState extends State<PinealUserTable> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           color: hovered
-              ? cs.primary.withValues(alpha: 0.04)
+              ? cs.primary.withValues(alpha: 0.03)
               : Colors.transparent,
           child: Row(children: [
             SizedBox(width: 48, child: _Avatar(name: row.name)),
             const SizedBox(width: 8),
-            Expanded(flex: 3, child: _nameCell(cs, row, firstCol)),
-            for (final col in widget.columns.skip(1))
+            Expanded(flex: 3, child: _nameCell(cs, row)),
+            for (final col in widget.columns)
               SizedBox(
                 width: _widthOf(col),
                 child: _bodyCell(cs, row, col),
@@ -615,7 +631,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
     );
   }
 
-  Widget _nameCell(ColorScheme cs, UserTableRow r, UserTableColumn? col) {
+  Widget _nameCell(ColorScheme cs, UserTableRow r) {
     final color = r.muted ? _secondary(cs) : cs.onSurface;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -624,7 +640,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
         Text(r.name,
           maxLines: 1, overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 13.5, fontWeight: FontWeight.w800, color: color)),
+            fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
         if (r.subId != null)
           Text(r.subId!,
             maxLines: 1, overflow: TextOverflow.ellipsis,
