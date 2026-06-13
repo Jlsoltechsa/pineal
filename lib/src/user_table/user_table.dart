@@ -148,6 +148,11 @@ class PinealUserTable extends StatefulWidget {
   /// Listo para el siguiente."), pásalo aquí. Pasa null para ocultarlo.
   final String? footerToast;
 
+  /// Color de fondo del contenedor de la tabla. Si es null usa `cs.surface`
+  /// (crema). Para una tabla BLANCA sobre la página crema, el caller pasa
+  /// `cs.sigmaCard` (pineal no conoce esa extensión, por eso se inyecta).
+  final Color? surfaceColor;
+
   const PinealUserTable({
     super.key,
     required this.title,
@@ -156,6 +161,7 @@ class PinealUserTable extends StatefulWidget {
     this.nameLabel = 'Nombre',
     required this.columns,
     required this.rows,
+    this.surfaceColor,
     this.headerStats = const [],
     this.chipFilters = const [],
     this.activeChipKey,
@@ -294,7 +300,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: widget.surfaceColor ?? cs.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: cs.outlineVariant),
       ),
