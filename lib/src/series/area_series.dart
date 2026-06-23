@@ -137,7 +137,7 @@ class AreaSeries extends Series {
       ..color = g.color
       ..strokeWidth = g.thickness
       ..style = PaintingStyle.stroke
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, g.sigma);
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, g.summa);
     canvas.drawRawPoints(PointMode.polygon, pts, paint);
   }
 }
@@ -146,11 +146,11 @@ class AreaSeries extends Series {
 class GlowEffect {
   const GlowEffect({
     this.color = const Color(0x661E88E5),
-    this.sigma = 6.0,
+    this.summa = 6.0,
     this.thickness = 3.0,
   });
 
   final Color color;
-  final double sigma;
+  final double summa;
   final double thickness;
 }

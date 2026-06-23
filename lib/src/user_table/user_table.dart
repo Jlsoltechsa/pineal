@@ -150,7 +150,7 @@ class PinealUserTable extends StatefulWidget {
 
   /// Color de fondo del contenedor de la tabla. Si es null usa `cs.surface`
   /// (crema). Para una tabla BLANCA sobre la página crema, el caller pasa
-  /// `cs.sigmaCard` (pineal no conoce esa extensión, por eso se inyecta).
+  /// `cs.summaCard` (pineal no conoce esa extensión, por eso se inyecta).
   final Color? surfaceColor;
 
   const PinealUserTable({
@@ -351,7 +351,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
           mainAxisSize: MainAxisSize.min,
           children: [
             RichText(text: TextSpan(
-              // Usa la familia DISPLAY del tema (Fraunces en SIGMA), no un
+              // Usa la familia DISPLAY del tema (Fraunces en SUMMA), no un
               // TextStyle sin familia (que caía en el body/Poppins).
               style: (Theme.of(context).textTheme.displaySmall ??
                       const TextStyle())

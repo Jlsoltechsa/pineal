@@ -126,7 +126,7 @@ All five take their colors as constructor parameters with neutral defaults — h
 
 ## 1.1.0 — Scatter, stacked bars, horizontal bars
 
-Three new cartesian series, all exported from `package:pineal/cartesian.dart`. These are the primitives that were blocking SIGMA's analytics module from dropping `fl_chart` — see [`COVERAGE_SIGMA.md`](COVERAGE_SIGMA.md).
+Three new cartesian series, all exported from `package:pineal/cartesian.dart`. These are the primitives that were blocking SUMMA's analytics module from dropping `fl_chart` — see [`COVERAGE_SUMMA.md`](COVERAGE_SUMMA.md).
 
 - **`ScatterSeries`** — unordered point cloud with optional per-point `colorOf(i)` / `radiusOf(i)` callbacks. Uniform case (no callbacks) batches every visible point into a single `drawRawPoints` call; per-point styling falls back to one `drawCircle` per point. Visible-range culling reuses the existing spatial index.
 - **`StackedBarSeries`** — multiple values per category, stacked from a shared baseline. The underlying `DataBuffer` stores the per-row total so the chart's autorange works without configuration. Per-stack colors wrap modulo length; optional `cornerRadius` rounds the top corners of the highest stack only, so inner stacks stay flush.
