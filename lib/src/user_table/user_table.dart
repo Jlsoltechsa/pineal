@@ -56,6 +56,13 @@ class UserTableColumn {
   final TextAlign align;
   final bool numeric;
 
+  /// Prioridad responsive: a MAYOR valor, más importante → se conserva más
+  /// tiempo al angostar. Cuando el ancho no alcanza, la tabla descarta las
+  /// columnas de MENOR prioridad (a igualdad, las de más a la derecha) antes
+  /// de aplastar el nombre —que NUNCA se descarta—. Default 0 (misma prioridad,
+  /// se caen de derecha a izquierda).
+  final int priority;
+
   /// Builder opcional. Si está, sustituye el render por defecto de
   /// `row.cells[key].toString()`.
   final Widget Function(BuildContext, UserTableRow row)? cellBuilder;
@@ -66,6 +73,7 @@ class UserTableColumn {
     this.width,
     this.align = TextAlign.left,
     this.numeric = false,
+    this.priority = 0,
     this.cellBuilder,
   });
 }
@@ -219,6 +227,26 @@ class _PinealUserTableState extends State<PinealUserTable> {
   double _widthOf(UserTableColumn col) =>
       _colWidths[col.key] ?? col.width ?? _kDefaultColWidth;
 
+  /// Columnas que caben en [maxWidth] sin aplastar el nombre. Descarta las de
+  /// MENOR prioridad (a igualdad, la de más a la derecha) hasta que el nombre
+  /// conserve un ancho mínimo legible. El nombre nunca se descarta.
+  List<UserTableColumn> _visibleColumns(double maxWidth) {
+    const overhead = 56.0 + 72.0 + 8.0; // avatar+gap · "Abrir" · colchón
+    const minName = 150.0;
+    if (maxWidth <= 0) return widget.columns;
+    final cols = List<UserTableColumn>.from(widget.columns);
+    double used() => cols.fold(0.0, (a, c) => a + _widthOf(c));
+    while (cols.isNotEmpty && overhead + minName + used() > maxWidth) {
+      var victim = 0;
+      for (var i = 1; i < cols.length; i++) {
+        // ≤ para que, a igual prioridad, caiga la de más a la derecha.
+        if (cols[i].priority <= cols[victim].priority) victim = i;
+      }
+      cols.removeAt(victim);
+    }
+    return cols;
+  }
+
   // ── Filtro / orden / paginación ────────────────────────────────────
 
   List<UserTableRow> get _filteredRows {
@@ -317,17 +345,27 @@ class _PinealUserTableState extends State<PinealUserTable> {
             _buildChipFilters(cs),
           ],
           const SizedBox(height: 14),
-          _buildTableHeader(cs),
-          const Divider(height: 1),
-          ..._pagedRows.map((r) => _buildRow(cs, r)),
-          if (_pagedRows.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text(
-                'Sin resultados',
-                style: TextStyle(color: _faint(cs)),
-              )),
-            ),
+          // El nombre (Expanded) manda: si el ancho no alcanza, se descartan
+          // las columnas de menor prioridad antes de aplastarlo.
+          LayoutBuilder(builder: (context, c) {
+            final cols = _visibleColumns(c.maxWidth);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildTableHeader(cs, cols),
+                const Divider(height: 1),
+                ..._pagedRows.map((r) => _buildRow(cs, r, cols)),
+                if (_pagedRows.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Center(child: Text(
+                      'Sin resultados',
+                      style: TextStyle(color: _faint(cs)),
+                    )),
+                  ),
+              ],
+            );
+          }),
           const Divider(height: 1),
           const SizedBox(height: 10),
           _buildFooter(cs),
@@ -512,8 +550,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
 
   // ── Tabla ──────────────────────────────────────────────────────────
 
-  Widget _buildTableHeader(ColorScheme cs) {
-    final cols = widget.columns;
+  Widget _buildTableHeader(ColorScheme cs, List<UserTableColumn> cols) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(children: [
@@ -590,7 +627,8 @@ class _PinealUserTableState extends State<PinealUserTable> {
     );
   }
 
-  Widget _buildRow(ColorScheme cs, UserTableRow row) {
+  Widget _buildRow(ColorScheme cs, UserTableRow row,
+      List<UserTableColumn> cols) {
     final hovered = _hoveredId == row.id;
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredId = row.id),
@@ -606,7 +644,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
             SizedBox(width: 48, child: _Avatar(name: row.name)),
             const SizedBox(width: 8),
             Expanded(flex: 3, child: _nameCell(cs, row)),
-            for (final col in widget.columns)
+            for (final col in cols)
               SizedBox(
                 width: _widthOf(col),
                 child: _bodyCell(cs, row, col),
