@@ -190,7 +190,6 @@ class PinealUserTable extends StatefulWidget {
 
 class _PinealUserTableState extends State<PinealUserTable> {
   late final TextEditingController _searchCtrl = TextEditingController();
-  String? _hoveredId;
   int _page = 0;
 
   /// Columna por la que se ordena (`key`). null = orden de entrada.
@@ -208,6 +207,23 @@ class _PinealUserTableState extends State<PinealUserTable> {
   /// Clave sentinela de la columna del NOMBRE (no es una `column` real; la
   /// fila la pinta con avatar + name + subId). Ordena por `name`.
   static const String _kNameKey = '__name__';
+
+  @override
+  void initState() {
+    super.initState();
+    _recompute();
+  }
+
+  @override
+  void didUpdateWidget(covariant PinealUserTable old) {
+    super.didUpdateWidget(old);
+    // Recomputa el filtro/orden SOLO cuando el caller cambia los datos o las
+    // columnas — no en cada rebuild (y nunca por hover, ahora aislado por fila).
+    if (!identical(old.rows, widget.rows) ||
+        !identical(old.columns, widget.columns)) {
+      _recompute();
+    }
+  }
 
   @override
   void dispose() {
@@ -247,41 +263,44 @@ class _PinealUserTableState extends State<PinealUserTable> {
     return cols;
   }
 
-  // ── Filtro / orden / paginación ────────────────────────────────────
+  // ── Filtro / orden / paginación (MEMOIZADO) ────────────────────────
+  // `_visible` = filas ya filtradas+ordenadas. Se recomputa SOLO cuando cambian
+  // datos/columnas (didUpdateWidget), la búsqueda o el orden — NUNCA en cada
+  // build. Antes, cada hover de fila hacía setState → build → re-filtrar y
+  // re-ordenar TODA la lista: con miles de filas, congelaba el hilo de UI.
+  List<UserTableRow> _visible = const [];
 
-  List<UserTableRow> get _filteredRows {
+  void _recompute() {
     final q = _searchCtrl.text.trim().toLowerCase();
-    if (q.isEmpty) return widget.rows;
-    return widget.rows.where((r) {
-      if (r.name.toLowerCase().contains(q)) return true;
-      if (r.subId?.toLowerCase().contains(q) ?? false) return true;
-      return r.cells.values.any((v) =>
-          v?.toString().toLowerCase().contains(q) ?? false);
-    }).toList();
-  }
-
-  List<UserTableRow> get _sortedRows {
-    final rows = _filteredRows;
+    var rows = q.isEmpty
+        ? widget.rows
+        : widget.rows.where((r) {
+            if (r.name.toLowerCase().contains(q)) return true;
+            if (r.subId?.toLowerCase().contains(q) ?? false) return true;
+            return r.cells.values.any((v) =>
+                v?.toString().toLowerCase().contains(q) ?? false);
+          }).toList();
     final key = _sortKey;
-    if (key == null) return rows;
-    UserTableColumn? col;
-    for (final c in widget.columns) {
-      if (c.key == key) {
-        col = c;
-        break;
+    if (key != null) {
+      UserTableColumn? col;
+      for (final c in widget.columns) {
+        if (c.key == key) {
+          col = c;
+          break;
+        }
       }
+      final numeric = col?.numeric ?? false;
+      rows = [...rows];
+      rows.sort((a, b) {
+        final sa = _sortValueOf(a, key);
+        final sb = _sortValueOf(b, key);
+        final cmp = numeric
+            ? _numOf(sa).compareTo(_numOf(sb))
+            : sa.toLowerCase().compareTo(sb.toLowerCase());
+        return _sortAsc ? cmp : -cmp;
+      });
     }
-    final numeric = col?.numeric ?? false;
-    final out = [...rows];
-    out.sort((a, b) {
-      final sa = _sortValueOf(a, key);
-      final sb = _sortValueOf(b, key);
-      final cmp = numeric
-          ? _numOf(sa).compareTo(_numOf(sb))
-          : sa.toLowerCase().compareTo(sb.toLowerCase());
-      return _sortAsc ? cmp : -cmp;
-    });
-    return out;
+    _visible = rows;
   }
 
   /// El valor de orden: la columna del nombre ordena por `name`; el resto,
@@ -305,19 +324,19 @@ class _PinealUserTableState extends State<PinealUserTable> {
         _sortAsc = true;
       }
       _page = 0;
+      _recompute();
     });
   }
 
   List<UserTableRow> get _pagedRows {
-    final sorted = _sortedRows;
     final start = _page * widget.pageSize;
-    if (start >= sorted.length) return const [];
-    final end = (start + widget.pageSize).clamp(0, sorted.length);
-    return sorted.sublist(start, end);
+    if (start >= _visible.length) return const [];
+    final end = (start + widget.pageSize).clamp(0, _visible.length);
+    return _visible.sublist(start, end);
   }
 
   int get _totalPages {
-    final n = _filteredRows.length;
+    final n = _visible.length;
     if (n == 0) return 1;
     return (n / widget.pageSize).ceil();
   }
@@ -480,7 +499,10 @@ class _PinealUserTableState extends State<PinealUserTable> {
             borderSide: BorderSide(color: cs.outlineVariant),
           ),
         ),
-        onChanged: (_) => setState(() => _page = 0),
+        onChanged: (_) => setState(() {
+          _recompute();
+          _page = 0;
+        }),
       )),
       if (widget.headerStats.isNotEmpty) ...[
         const SizedBox(width: 16),
@@ -629,52 +651,49 @@ class _PinealUserTableState extends State<PinealUserTable> {
 
   Widget _buildRow(ColorScheme cs, UserTableRow row,
       List<UserTableColumn> cols) {
-    final hovered = _hoveredId == row.id;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredId = row.id),
-      onExit: (_) => setState(() => _hoveredId = null),
-      child: InkWell(
-        onTap: widget.onOpen == null ? null : () => widget.onOpen!(row),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-          color: hovered
-              ? cs.primary.withValues(alpha: 0.03)
-              : Colors.transparent,
-          child: Row(children: [
-            SizedBox(width: 48, child: _Avatar(name: row.name)),
-            const SizedBox(width: 8),
-            Expanded(flex: 3, child: _nameCell(cs, row)),
-            for (final col in cols)
-              SizedBox(
-                width: _widthOf(col),
-                child: _bodyCell(cs, row, col),
-              ),
+    // El estado de hover vive en la PROPIA fila (`_HoverRow`), no en el State
+    // de la tabla: pasar el mouse solo reconstruye esa fila, no la tabla entera
+    // (antes cada hover hacía setState global → re-filtrar/re-ordenar todo).
+    return _HoverRow(
+      onTap: widget.onOpen == null ? null : () => widget.onOpen!(row),
+      builder: (hovered) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        color:
+            hovered ? cs.primary.withValues(alpha: 0.03) : Colors.transparent,
+        child: Row(children: [
+          SizedBox(width: 48, child: _Avatar(name: row.name)),
+          const SizedBox(width: 8),
+          Expanded(flex: 3, child: _nameCell(cs, row)),
+          for (final col in cols)
             SizedBox(
-              width: 72,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 150),
-                  opacity: hovered ? 1 : 0.5,
-                  child: TextButton(
-                    onPressed: widget.onOpen == null
-                        ? null : () => widget.onOpen!(row),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text('Abrir',
-                      style: TextStyle(
-                        fontSize: 12.5, fontWeight: FontWeight.w700,
-                        color: cs.primary)),
+              width: _widthOf(col),
+              child: _bodyCell(cs, row, col),
+            ),
+          SizedBox(
+            width: 72,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 150),
+                opacity: hovered ? 1 : 0.5,
+                child: TextButton(
+                  onPressed: widget.onOpen == null
+                      ? null : () => widget.onOpen!(row),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
+                  child: Text('Abrir',
+                    style: TextStyle(
+                      fontSize: 12.5, fontWeight: FontWeight.w700,
+                      color: cs.primary)),
                 ),
               ),
             ),
-          ]),
-        ),
+          ),
+        ]),
       ),
     );
   }
@@ -745,7 +764,7 @@ class _PinealUserTableState extends State<PinealUserTable> {
   // ── Footer con paginación humana ───────────────────────────────────
 
   Widget _buildFooter(ColorScheme cs) {
-    final n = _filteredRows.length;
+    final n = _visible.length;
     final shown = _pagedRows.length;
     return Row(children: [
       Flexible(
@@ -827,6 +846,37 @@ class _ResizeHandleState extends State<_ResizeHandle> {
                 : widget.lineColor.withValues(alpha: 0.0),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Fila con hover LOCAL: el `MouseRegion` reconstruye solo esta fila, no la
+// tabla — así pasar el mouse no dispara un setState global (que re-filtraba y
+// re-ordenaba toda la lista, congelando la UI con miles de filas).
+// ─────────────────────────────────────────────────────────────────────
+
+class _HoverRow extends StatefulWidget {
+  final Widget Function(bool hovered) builder;
+  final VoidCallback? onTap;
+  const _HoverRow({required this.builder, this.onTap});
+
+  @override
+  State<_HoverRow> createState() => _HoverRowState();
+}
+
+class _HoverRowState extends State<_HoverRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: InkWell(
+        onTap: widget.onTap,
+        child: widget.builder(_hovered),
       ),
     );
   }
