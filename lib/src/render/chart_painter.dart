@@ -98,9 +98,21 @@ class ChartPainter extends CustomPainter {
     }
   }
 
+  /// Rough size of what is on screen, used only to pick the render mode.
+  ///
+  /// This used to call `rangeIndices` on every series, which binary-searches
+  /// and asserts `xSorted`. That made a legitimately unsorted buffer — a
+  /// horizontal bar chart, where x is the *value* and the category is y —
+  /// throw on every paint in debug, from a heuristic that does not even need
+  /// an exact answer. An unsorted buffer is now counted the honest way: the
+  /// whole thing, since none of it can be culled.
   int _visiblePointCount(PinealCore core) {
     var total = 0;
     for (final s in core.series) {
+      if (!s.data.xSorted) {
+        total += s.data.length;
+        continue;
+      }
       final r = s.index.rangeIndices(core.xViewport.xMin, core.xViewport.xMax);
       total += r.end - r.start;
     }
