@@ -48,7 +48,21 @@ class StackedBarSeries extends Series {
         ys[i] += stack[i];
       }
     }
-    return DataBuffer.fromXY(xs, ys, xSorted: false);
+    // `xSorted: true` (the default), not false. `paint` culls through
+    // `index.rangeIndices`, which binary-searches and asserts `xSorted` — so
+    // declaring the buffer unsorted made every paint throw in debug while the
+    // release build silently binary-searched anyway. This series *requires*
+    // ascending x (it draws one bar per category slot), so the honest fix is to
+    // state that requirement and check it.
+    assert(_ascending(xs), 'StackedBarSeries requires ascending xs');
+    return DataBuffer.fromXY(xs, ys);
+  }
+
+  static bool _ascending(List<double> xs) {
+    for (var i = 1; i < xs.length; i++) {
+      if (xs[i] < xs[i - 1]) return false;
+    }
+    return true;
   }
 
   @override
